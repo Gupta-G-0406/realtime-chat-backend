@@ -2,74 +2,83 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
-dotenv.config();
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:5173"];
-app.use(cors({ origin: allowedOrigins }));
+dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// http Handshake for socket.io
+// CORS setup
+const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:5173"];
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
+
+// Home page (test if backend is live)
+app.get("/", (req, res) => {
+  res.send("<h1>Real-Time Chat Backend is Running 🚀</h1>");
+});
+
+// Serve React frontend in production (optional)
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  });
+}
+
+// HTTP server for Socket.IO
 const server = createServer(app);
 
-// Socket.io Server Instance Initialization
+// Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
 
-app.use(cors());
-app.use(express.json());
-app.get("/", (req, res) => {
-  res.send("<h1>RealTime Chat Application🚀</h1>");
-});
-
-// Middleware
-io.use(async (socket, next) => {
+// Socket.IO middleware
+io.use((socket, next) => {
   console.log(`Socket.io Middleware Called With SocketID ${socket.id}`);
   next();
 });
 
-// Socket.io Connection Event Server Named io
+// Socket.IO connection
 io.on("connection", (socket) => {
-  console.log(`user is connected with id ${socket.id}`);
-  // send msg to all inside server
-  // socket.emit("welcome", "Welcome to the chat application");
+  console.log(`User connected: ${socket.id}`);
 
-  // send msg to all except sender
-  // socket.broadcast.emit("hello", `${socket.id} has joined the chat`);
+  // Join room
+  socket.on("join-room", (roomName) => {
+    socket.join(roomName);
+    console.log(`${socket.id} joined room ${roomName}`);
+  });
 
-  //receive msg from client
+  // Receive message
   socket.on("message", ({ msg, room }) => {
     console.log({ msg, room });
-    // if you want to send msg to all connected clients and also sender
-    // io.emit("receive-message", msg);
-
-    // if you want to send msg to all connected clients except sender
-    // socket.broadcast.emit("receive-message", msg);
-
-    // for creatig rooms
-    socket.to(room).emit("receive-message", msg);
+    if (room) {
+      socket.to(room).emit("receive-message", msg); // send to room
+    } else {
+      io.emit("receive-message", msg); // send to all
+    }
   });
 
-  socket.on("join-room", (roomName) => {
-    // It helps in Joining a room with the name roomName
-    socket.join(roomName);
-    console.log(`user with id ${socket.id} has joined room ${roomName}`);
-  });
-
-  //disconnect event
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log(`user with id ${socket.id} has left the chat`);
+    console.log(`User disconnected: ${socket.id}`);
   });
 });
+
+// Start server
 server.listen(PORT, () => {
-  console.log(`server is running on port no. ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 // socket.emit -> to send message to a client
