@@ -11,6 +11,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -19,7 +20,7 @@ const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:5173"];
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
-// Home page (test if backend is live)
+// Home route to test backend
 app.get("/", (req, res) => {
   res.send("<h1>Real-Time Chat Backend is Running 🚀</h1>");
 });
@@ -33,7 +34,7 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// HTTP server for Socket.IO
+// Create HTTP server for Socket.IO
 const server = createServer(app);
 
 // Socket.IO setup
@@ -44,7 +45,7 @@ const io = new Server(server, {
   },
 });
 
-// Socket.IO middleware
+// Socket.IO middleware (optional logging)
 io.use((socket, next) => {
   console.log(`Socket.io Middleware Called With SocketID ${socket.id}`);
   next();
@@ -80,13 +81,3 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-// socket.emit -> to send message to a client
-
-// io.emit -> to send a message to the whole server
-
-// socket.broadcast.emit -> to send a message to everyone except the sender (more useful)
-
-// socket.on -> to write reciever handling logic of the emit logic
-
-// socket.to(id).emit() is the standard way to send a private message to a specific user.
